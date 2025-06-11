@@ -179,10 +179,6 @@ questions = [
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 라이선스
-
-This project is licensed under the MIT License.
-
 ## 🚨 면책 조항
 
 이 프로젝트는 교육 및 연구 목적으로 제작되었습니다. 실제 거래 시 발생하는 손실에 대해서는 책임지지 않습니다. 투자는 본인의 판단과 책임하에 진행하시기 바랍니다.
