@@ -37,11 +37,9 @@ class LangChainAgent:
         self,
         model_key: str = None,
         temperature: float = 0.7,
-        mcp_server_url: Optional[str] = None,
         llm: Optional[BaseChatModel] = None
     ):
-        self.temperature = temperature
-        self.mcp_server_url = mcp_server_url or f"http://{os.getenv('MCP_SERVER_HOST', 'localhost')}:{os.getenv('MCP_SERVER_PORT', '8000')}/mcp"        
+        self.temperature = temperature        
         if llm is not None:
             self.llm = llm
             return        
