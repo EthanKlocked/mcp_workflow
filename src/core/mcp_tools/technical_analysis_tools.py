@@ -20,7 +20,6 @@ def register_technical_analysis_tools(mcp):
         )
             
     def get_candle_data(symbol: str, interval: str = "1h", limit: int = 100) -> pd.DataFrame:
-        """캔들 데이터를 DataFrame으로 변환"""
         try:
             client = get_bitget_client()
             candles_response = client.get_future_prices(
@@ -34,15 +33,12 @@ def register_technical_analysis_tools(mcp):
             
             candles_data = candles_response.get("data", [])
             
-            # DataFrame 생성 (실제 API 응답: [timestamp, open, high, low, close, volume, baseVolume])
             df = pd.DataFrame(candles_data, columns=[
                 'timestamp', 'open', 'high', 'low', 'close', 'volume', 'base_volume'
             ])
             
-            # base_volume은 사용하지 않으므로 제거
             df = df.drop('base_volume', axis=1)
             
-            # 데이터 타입 변환
             df['timestamp'] = pd.to_numeric(df['timestamp'])
             df['open'] = pd.to_numeric(df['open'])
             df['high'] = pd.to_numeric(df['high'])
@@ -50,7 +46,6 @@ def register_technical_analysis_tools(mcp):
             df['close'] = pd.to_numeric(df['close'])
             df['volume'] = pd.to_numeric(df['volume'])
             
-            # 타임스탬프를 datetime으로 변환
             df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
             df = df.sort_values('timestamp').reset_index(drop=True)        
             
@@ -61,7 +56,6 @@ def register_technical_analysis_tools(mcp):
             raise Exception(f"Error getting candle data: {str(e)}")
     
     def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
-        """RSI 계산"""
         delta = prices.diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
@@ -70,11 +64,9 @@ def register_technical_analysis_tools(mcp):
         return rsi
     
     def calculate_moving_average(prices: pd.Series, period: int) -> pd.Series:
-        """이동평균선 계산"""
         return prices.rolling(window=period).mean()
     
     def calculate_bollinger_bands(prices: pd.Series, period: int = 20, std_dev: int = 2):
-        """볼린저 밴드 계산"""
         ma = prices.rolling(window=period).mean()
         std = prices.rolling(window=period).std()
         upper_band = ma + (std * std_dev)
@@ -84,40 +76,38 @@ def register_technical_analysis_tools(mcp):
     @mcp.tool()
     async def analyze_rsi(symbol: str, period: int = 14, interval: str = "1h") -> str:
         """
-        RSI 분석 - 과매수/과매도 상태 판단
+        Analyze RSI (Relative Strength Index) to determine overbought/oversold conditions.
         
         Args:
-            symbol: 거래 심볼 (e.g., BTCUSDT)
-            period: RSI 계산 기간 (기본값: 14)
-            interval: 시간 간격 (1h, 4h, 1d 등)
+            symbol: Trading symbol (e.g., BTCUSDT, ETHUSDT)
+            period: RSI calculation period (default: 14)
+            interval: Time interval (1h, 4h, 1d, etc.)
         """
         try:
             df = get_candle_data(symbol, interval, 100)
             
             if df.empty or len(df) < period + 1:
-                return json.dumps({"error": "충분한 데이터가 없습니다"}, ensure_ascii=False, indent=2)
+                return json.dumps({"error": "Insufficient data for RSI calculation"}, ensure_ascii=False, indent=2)
             
             rsi = calculate_rsi(df['close'], period)
             
             current_rsi = rsi.iloc[-1]
             prev_rsi = rsi.iloc[-2] if len(rsi) > 1 else current_rsi
             
-            # RSI 해석
             if pd.isna(current_rsi):
-                return json.dumps({"error": "RSI 계산 불가"}, ensure_ascii=False, indent=2)
+                return json.dumps({"error": "RSI calculation failed"}, ensure_ascii=False, indent=2)
             
             if current_rsi >= 70:
-                signal = "과매수 - 매도 고려"
-                strength = "강함" if current_rsi >= 80 else "보통"
+                signal = "Overbought - Consider selling"
+                strength = "Strong" if current_rsi >= 80 else "Medium"
             elif current_rsi <= 30:
-                signal = "과매도 - 매수 고려"  
-                strength = "강함" if current_rsi <= 20 else "보통"
+                signal = "Oversold - Consider buying"  
+                strength = "Strong" if current_rsi <= 20 else "Medium"
             else:
-                signal = "중립"
-                strength = "중립"
+                signal = "Neutral"
+                strength = "Neutral"
             
-            # 추세 분석
-            trend = "상승" if current_rsi > prev_rsi else "하락"
+            trend = "Rising" if current_rsi > prev_rsi else "Falling"
             
             result = {
                 "symbol": symbol,
@@ -143,21 +133,20 @@ def register_technical_analysis_tools(mcp):
     @mcp.tool()
     async def analyze_moving_averages(symbol: str, short_ma: int = 20, long_ma: int = 50, interval: str = "1h") -> str:
         """
-        이동평균선 분석 및 골든크로스/데드크로스 감지
+        Analyze moving averages and detect golden cross/death cross patterns.
         
         Args:
-            symbol: 거래 심볼 (e.g., BTCUSDT)
-            short_ma: 단기 이동평균 기간 (기본값: 20)
-            long_ma: 장기 이동평균 기간 (기본값: 50)
-            interval: 시간 간격
+            symbol: Trading symbol (e.g., BTCUSDT, ETHUSDT)
+            short_ma: Short-term moving average period (default: 20)
+            long_ma: Long-term moving average period (default: 50)
+            interval: Time interval for analysis
         """
         try:
             df = get_candle_data(symbol, interval, max(long_ma + 20, 100))
             
             if df.empty or len(df) < long_ma + 1:
-                return json.dumps({"error": "충분한 데이터가 없습니다"}, ensure_ascii=False, indent=2)
+                return json.dumps({"error": "Insufficient data for moving average calculation"}, ensure_ascii=False, indent=2)
             
-            # 이동평균선 계산
             df[f'ma_{short_ma}'] = calculate_moving_average(df['close'], short_ma)
             df[f'ma_{long_ma}'] = calculate_moving_average(df['close'], long_ma)
             
@@ -167,29 +156,26 @@ def register_technical_analysis_tools(mcp):
             prev_long_ma = df[f'ma_{long_ma}'].iloc[-2] if len(df) > 1 else current_long_ma
             current_price = df['close'].iloc[-1]
             
-            # NaN 체크
             if pd.isna(current_short_ma) or pd.isna(current_long_ma):
-                return json.dumps({"error": "이동평균 계산 불가"}, ensure_ascii=False, indent=2)
+                return json.dumps({"error": "Moving average calculation failed"}, ensure_ascii=False, indent=2)
             
-            # 크로스 감지
-            cross_signal = "없음"
+            cross_signal = "None"
             if not pd.isna(prev_short_ma) and not pd.isna(prev_long_ma):
                 if prev_short_ma <= prev_long_ma and current_short_ma > current_long_ma:
-                    cross_signal = "골든크로스 - 강한 매수 신호"
+                    cross_signal = "Golden Cross - Strong buy signal"
                 elif prev_short_ma >= prev_long_ma and current_short_ma < current_long_ma:
-                    cross_signal = "데드크로스 - 강한 매도 신호"
+                    cross_signal = "Death Cross - Strong sell signal"
             
-            # 가격 대비 이동평균 위치
             price_vs_ma = []
             if current_price > current_short_ma:
-                price_vs_ma.append(f"가격이 {short_ma}일선 위에 있음 (상승 추세)")
+                price_vs_ma.append(f"Price above {short_ma}-period MA (Uptrend)")
             else:
-                price_vs_ma.append(f"가격이 {short_ma}일선 아래에 있음 (하락 추세)")
+                price_vs_ma.append(f"Price below {short_ma}-period MA (Downtrend)")
             
             if current_price > current_long_ma:
-                price_vs_ma.append(f"가격이 {long_ma}일선 위에 있음 (장기 상승)")
+                price_vs_ma.append(f"Price above {long_ma}-period MA (Long-term uptrend)")
             else:
-                price_vs_ma.append(f"가격이 {long_ma}일선 아래에 있음 (장기 하락)")
+                price_vs_ma.append(f"Price below {long_ma}-period MA (Long-term downtrend)")
             
             result = {
                 "symbol": symbol,
@@ -202,8 +188,8 @@ def register_technical_analysis_tools(mcp):
                 "cross_signal": cross_signal,
                 "price_analysis": price_vs_ma,
                 "trend_strength": {
-                    "short_term": "상승" if current_short_ma > prev_short_ma else "하락",
-                    "long_term": "상승" if current_long_ma > prev_long_ma else "하락"
+                    "short_term": "Rising" if current_short_ma > prev_short_ma else "Falling",
+                    "long_term": "Rising" if current_long_ma > prev_long_ma else "Falling"
                 },
                 "timestamp": df['datetime'].iloc[-1].isoformat()
             }
@@ -216,21 +202,20 @@ def register_technical_analysis_tools(mcp):
     @mcp.tool()
     async def analyze_bollinger_bands(symbol: str, period: int = 20, std_dev: int = 2, interval: str = "1h") -> str:
         """
-        볼린저 밴드 분석 - 변동성 및 진입점 분석
+        Analyze Bollinger Bands for volatility and entry point identification.
         
         Args:
-            symbol: 거래 심볼 (e.g., BTCUSDT)
-            period: 볼린저 밴드 기간 (기본값: 20)
-            std_dev: 표준편차 배수 (기본값: 2)
-            interval: 시간 간격
+            symbol: Trading symbol (e.g., BTCUSDT, ETHUSDT)
+            period: Bollinger Bands period (default: 20)
+            std_dev: Standard deviation multiplier (default: 2)
+            interval: Time interval for analysis
         """
         try:
             df = get_candle_data(symbol, interval, max(period + 20, 100))
             
             if df.empty or len(df) < period + 1:
-                return json.dumps({"error": "충분한 데이터가 없습니다"}, ensure_ascii=False, indent=2)
+                return json.dumps({"error": "Insufficient data for Bollinger Bands calculation"}, ensure_ascii=False, indent=2)
             
-            # 볼린저 밴드 계산
             upper_band, middle_band, lower_band = calculate_bollinger_bands(df['close'], period, std_dev)
             
             current_price = df['close'].iloc[-1]
@@ -238,32 +223,26 @@ def register_technical_analysis_tools(mcp):
             current_middle = middle_band.iloc[-1]
             current_lower = lower_band.iloc[-1]
             
-            # NaN 체크
             if pd.isna(current_upper) or pd.isna(current_middle) or pd.isna(current_lower):
-                return json.dumps({"error": "볼린저 밴드 계산 불가"}, ensure_ascii=False, indent=2)
+                return json.dumps({"error": "Bollinger Bands calculation failed"}, ensure_ascii=False, indent=2)
             
-            # 밴드폭 계산 (변동성 지표)
             band_width = ((current_upper - current_lower) / current_middle) * 100
-            
-            # 가격 위치 분석
             price_position = ((current_price - current_lower) / (current_upper - current_lower)) * 100
             
-            # 신호 생성
             if current_price >= current_upper:
-                signal = "상단 밴드 접촉 - 과매수, 매도 고려"
-                strength = "강함"
+                signal = "Upper band touch - Overbought, consider selling"
+                strength = "Strong"
             elif current_price <= current_lower:
-                signal = "하단 밴드 접촉 - 과매도, 매수 고려"
-                strength = "강함"
+                signal = "Lower band touch - Oversold, consider buying"
+                strength = "Strong"
             elif current_price > current_middle:
-                signal = "중간선 위 - 상승 추세"
-                strength = "보통"
+                signal = "Above middle line - Uptrend"
+                strength = "Medium"
             else:
-                signal = "중간선 아래 - 하락 추세"
-                strength = "보통"
+                signal = "Below middle line - Downtrend"
+                strength = "Medium"
             
-            # 스퀴즈 감지 (낮은 변동성)
-            squeeze_threshold = 10  # 밴드폭 10% 이하면 스퀴즈
+            squeeze_threshold = 10
             is_squeeze = band_width < squeeze_threshold
             
             result = {
@@ -281,11 +260,11 @@ def register_technical_analysis_tools(mcp):
                     "price_position_percent": round(float(price_position), 1),
                     "band_width_percent": round(float(band_width), 2),
                     "is_squeeze": is_squeeze,
-                    "volatility": "낮음" if band_width < 10 else "보통" if band_width < 20 else "높음"
+                    "volatility": "Low" if band_width < 10 else "Medium" if band_width < 20 else "High"
                 },
                 "trading_insight": {
-                    "squeeze_breakout": "변동성 돌파 대기" if is_squeeze else "정상 변동성",
-                    "mean_reversion": f"중간선까지 {abs(float(current_price - current_middle)):.2f} 차이"
+                    "squeeze_breakout": "Waiting for volatility breakout" if is_squeeze else "Normal volatility",
+                    "mean_reversion": f"Distance to middle line: {abs(float(current_price - current_middle)):.2f}"
                 },
                 "timestamp": df['datetime'].iloc[-1].isoformat()
             }
@@ -298,93 +277,89 @@ def register_technical_analysis_tools(mcp):
     @mcp.tool()
     async def comprehensive_technical_analysis(symbol: str, interval: str = "1h") -> str:
         """
-        종합 기술적 분석 - RSI, 이동평균, 볼린저밴드 통합 분석
+        Comprehensive technical analysis combining RSI, moving averages, and Bollinger Bands with trading signals.
         
         Args:
-            symbol: 거래 심볼 (e.g., BTCUSDT)
-            interval: 시간 간격
+            symbol: Trading symbol (e.g., BTCUSDT, ETHUSDT)
+            interval: Time interval for comprehensive analysis
         """
         try:
-            # 데이터 한 번만 가져와서 모든 분석에 사용
-            df = get_candle_data(symbol, interval, 200)  # 더 많은 데이터
+            df = get_candle_data(symbol, interval, 200)
             
             if df.empty or len(df) < 50:
-                return json.dumps({"error": "충분한 데이터가 없습니다"}, ensure_ascii=False, indent=2)
+                return json.dumps({"error": "Insufficient data for comprehensive analysis"}, ensure_ascii=False, indent=2)
             
-            # 직접 계산으로 더 안정적으로 처리
             results = {}
             total_score = 0
             signals = []
             
-            # RSI 분석
+            # RSI Analysis
             try:
                 rsi = calculate_rsi(df['close'], 14)
                 current_rsi = rsi.iloc[-1]
                 
                 if not pd.isna(current_rsi):
                     if current_rsi <= 30:
-                        signals.append("RSI: 과매도 - 매수 신호")
+                        signals.append("RSI: Oversold - Buy signal")
                         total_score += 1
                         if current_rsi <= 20:
-                            total_score += 1  # 강한 신호
+                            total_score += 1
                     elif current_rsi >= 70:
-                        signals.append("RSI: 과매수 - 매도 신호")
+                        signals.append("RSI: Overbought - Sell signal")
                         total_score -= 1
                         if current_rsi >= 80:
-                            total_score -= 1  # 강한 신호
+                            total_score -= 1
                     else:
-                        signals.append("RSI: 중립")
+                        signals.append("RSI: Neutral")
                     
                     results["rsi"] = {
                         "current": round(float(current_rsi), 2),
-                        "signal": "과매도" if current_rsi <= 30 else "과매수" if current_rsi >= 70 else "중립"
+                        "signal": "Oversold" if current_rsi <= 30 else "Overbought" if current_rsi >= 70 else "Neutral"
                     }
                 else:
-                    signals.append("RSI: 계산 불가")
+                    signals.append("RSI: Calculation failed")
             except Exception as e:
-                signals.append(f"RSI: 오류 ({str(e)})")
+                signals.append(f"RSI: Error ({str(e)})")
             
-            # 이동평균 분석
+            # Moving Average Analysis
             try:
                 ma_20 = calculate_moving_average(df['close'], 20).iloc[-1]
                 ma_50 = calculate_moving_average(df['close'], 50).iloc[-1]
                 current_price = df['close'].iloc[-1]
                 
                 if not pd.isna(ma_20) and not pd.isna(ma_50):
-                    # 골든크로스/데드크로스 체크
                     if len(df) > 1:
                         prev_ma_20 = calculate_moving_average(df['close'], 20).iloc[-2]
                         prev_ma_50 = calculate_moving_average(df['close'], 50).iloc[-2]
                         
                         if prev_ma_20 <= prev_ma_50 and ma_20 > ma_50:
-                            signals.append("이동평균: 골든크로스 - 강한 매수")
+                            signals.append("Moving Average: Golden Cross - Strong buy")
                             total_score += 2
                         elif prev_ma_20 >= prev_ma_50 and ma_20 < ma_50:
-                            signals.append("이동평균: 데드크로스 - 강한 매도")
+                            signals.append("Moving Average: Death Cross - Strong sell")
                             total_score -= 2
                         else:
-                            # 일반적인 이동평균 신호
                             if current_price > ma_20 > ma_50:
-                                signals.append("이동평균: 상승 정렬")
+                                signals.append("Moving Average: Bullish alignment")
                                 total_score += 1
                             elif current_price < ma_20 < ma_50:
-                                signals.append("이동평균: 하락 정렬")
+                                signals.append("Moving Average: Bearish alignment")
                                 total_score -= 1
                             else:
-                                signals.append("이동평균: 혼재")
+                                signals.append("Moving Average: Mixed signals")
                     
                     results["moving_average"] = {
                         "ma_20": round(float(ma_20), 2),
                         "ma_50": round(float(ma_50), 2),
                         "current_price": round(float(current_price), 2),
-                        "trend": "상승" if ma_20 > ma_50 else "하락"
+                        "trend": "Bullish" if ma_20 > ma_50 else "Bearish"
                     }
                 else:
-                    signals.append("이동평균: 계산 불가")
+                    signals.append("Moving Average: Calculation failed")
             except Exception as e:
-                signals.append(f"이동평균: 오류 ({str(e)})")
+                signals.append(f"Moving Average: Error ({str(e)})")
             
-            # 볼린저밴드 분석
+            # Bollinger Bands Analysis
             try:
                 upper_band, middle_band, lower_band = calculate_bollinger_bands(df['close'], 20, 2)
                 current_upper = upper_band.iloc[-1]
@@ -393,13 +368,13 @@ def register_technical_analysis_tools(mcp):
                 
                 if not pd.isna(current_upper) and not pd.isna(current_lower):
                     if current_price >= current_upper:
-                        signals.append("볼린저밴드: 상단 접촉 - 매도 고려")
+                        signals.append("Bollinger Bands: Upper band touch - Consider selling")
                         total_score -= 1
                     elif current_price <= current_lower:
-                        signals.append("볼린저밴드: 하단 접촉 - 매수 고려")
+                        signals.append("Bollinger Bands: Lower band touch - Consider buying")
                         total_score += 1
                     else:
-                        signals.append("볼린저밴드: 중립")
+                        signals.append("Bollinger Bands: Within normal range")
                     
                     results["bollinger_bands"] = {
                         "upper": round(float(current_upper), 2),
@@ -408,26 +383,26 @@ def register_technical_analysis_tools(mcp):
                         "position": round(((current_price - current_lower) / (current_upper - current_lower)) * 100, 1)
                     }
                 else:
-                    signals.append("볼린저밴드: 계산 불가")
+                    signals.append("Bollinger Bands: Calculation failed")
             except Exception as e:
-                signals.append(f"볼린저밴드: 오류 ({str(e)})")
+                signals.append(f"Bollinger Bands: Error ({str(e)})")
             
-            # 종합 판단
+            # Overall Signal Generation
             if total_score >= 3:
-                overall_signal = "강한 매수 추천"
-                recommendation = "여러 지표가 매수 신호를 보이고 있습니다. 하지만 리스크 관리는 필수입니다."
+                overall_signal = "Strong Buy Recommendation"
+                recommendation = "Multiple indicators show buy signals. However, proper risk management is essential."
             elif total_score >= 1:
-                overall_signal = "매수 고려"
-                recommendation = "일부 지표에서 매수 신호가 나타나고 있습니다. 추가 확인 후 결정하세요."
+                overall_signal = "Consider Buying"
+                recommendation = "Some indicators show buy signals. Confirm with additional analysis before deciding."
             elif total_score <= -3:
-                overall_signal = "강한 매도 추천"
-                recommendation = "여러 지표가 매도 신호를 보이고 있습니다. 손절 고려가 필요합니다."
+                overall_signal = "Strong Sell Recommendation"
+                recommendation = "Multiple indicators show sell signals. Consider stop-loss implementation."
             elif total_score <= -1:
-                overall_signal = "매도 고려"
-                recommendation = "일부 지표에서 매도 신호가 나타나고 있습니다. 주의 깊게 모니터링하세요."
+                overall_signal = "Consider Selling"
+                recommendation = "Some indicators show sell signals. Monitor closely for trend confirmation."
             else:
-                overall_signal = "중립 - 대기"
-                recommendation = "명확한 신호가 없는 상태입니다. 추세 확인 후 진입하세요."
+                overall_signal = "Neutral - Wait"
+                recommendation = "No clear signals detected. Wait for trend confirmation before entering positions."
             
             comprehensive_result = {
                 "symbol": symbol,
@@ -439,12 +414,12 @@ def register_technical_analysis_tools(mcp):
                 "recommendation": recommendation,
                 "individual_signals": signals,
                 "technical_indicators": results,
-                "risk_warning": "이 분석은 참고용이며, 투자 결정은 본인 책임입니다. 손절매 설정을 권장합니다."
+                "risk_warning": "This analysis is for reference only. Investment decisions are your own responsibility. Setting stop-loss is recommended."
             }
             
             return json.dumps(comprehensive_result, ensure_ascii=False, indent=2)
             
         except Exception as e:
-            return json.dumps({"error": f"종합 분석 중 오류: {str(e)}"}, ensure_ascii=False, indent=2)
+            return json.dumps({"error": f"Comprehensive analysis error: {str(e)}"}, ensure_ascii=False, indent=2)
     
-    print("📊 수정된 기술적 분석 도구 등록 완료")
+    print("📊 Technical analysis tools registered successfully")

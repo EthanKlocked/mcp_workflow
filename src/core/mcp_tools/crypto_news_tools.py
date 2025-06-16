@@ -7,9 +7,8 @@ from typing import List, Dict
 import re
 from urllib.parse import urlparse
 
-def register_free_crypto_news_tools(mcp):
+def register_crypto_news_tools(mcp):
     
-    # 무료 RSS 피드 목록
     RSS_FEEDS = {
         'coindesk': 'https://www.coindesk.com/arc/outboundfeeds/rss/',
         'cointelegraph': 'https://cointelegraph.com/rss',
@@ -19,18 +18,16 @@ def register_free_crypto_news_tools(mcp):
         'cryptopotato': 'https://cryptopotato.com/feed/',
         'cryptonews': 'https://cryptonews.com/news/feed/',
         'newsbtc': 'https://www.newsbtc.com/feed/',
-        'cryptocompare': 'https://www.cryptocompare.com/api/data/news/',  # API 방식
-        'coingecko_trending': 'https://api.coingecko.com/api/v3/search/trending'  # 트렌딩 코인
+        'cryptocompare': 'https://www.cryptocompare.com/api/data/news/',
+        'coingecko_trending': 'https://api.coingecko.com/api/v3/search/trending'
     }
     
     def fetch_rss_feed(url: str, source_name: str) -> List[Dict]:
-        """RSS 피드에서 뉴스 가져오기"""
         try:
             feed = feedparser.parse(url)
             news_list = []
             
-            for entry in feed.entries[:10]:  # 최신 10개
-                # 날짜 파싱
+            for entry in feed.entries[:10]:
                 try:
                     published = datetime(*entry.published_parsed[:6]) if hasattr(entry, 'published_parsed') and entry.published_parsed else datetime.now()
                 except:
@@ -48,11 +45,10 @@ def register_free_crypto_news_tools(mcp):
             return news_list
             
         except Exception as e:
-            print(f"RSS 피드 에러 ({source_name}): {str(e)}")
+            print(f"RSS feed error ({source_name}): {str(e)}")
             return []
     
     def fetch_cryptocompare_news(limit: int = 10) -> List[Dict]:
-        """CryptoCompare 무료 뉴스 API"""
         try:
             url = f"https://min-api.cryptocompare.com/data/v2/news/?lang=EN&limit={limit}"
             response = requests.get(url, timeout=10)
@@ -75,15 +71,14 @@ def register_free_crypto_news_tools(mcp):
                 
                 return news_list
             else:
-                print(f"CryptoCompare API 에러: {response.status_code}")
+                print(f"CryptoCompare API error: {response.status_code}")
                 return []
                 
         except Exception as e:
-            print(f"CryptoCompare 뉴스 가져오기 실패: {e}")
+            print(f"CryptoCompare news fetch failed: {e}")
             return []
     
     def fetch_coingecko_trending() -> Dict:
-        """CoinGecko 트렌딩 코인 정보"""
         try:
             url = "https://api.coingecko.com/api/v3/search/trending"
             response = requests.get(url, timeout=10)
@@ -110,21 +105,20 @@ def register_free_crypto_news_tools(mcp):
                 return {}
                 
         except Exception as e:
-            print(f"트렌딩 정보 가져오기 실패: {e}")
+            print(f"Trending info fetch failed: {e}")
             return {}
     
     def analyze_sentiment_simple(text: str) -> Dict:
-        """간단한 감정 분석"""
         positive_words = [
-            '상승', '증가', '랠리', '돌파', '신고가', '강세', '호재', '긍정', '성장', '확대',
             'surge', 'rally', 'bullish', 'gain', 'rise', 'pump', 'moon', 'breakout',
-            'adoption', 'partnership', 'upgrade', 'positive', 'growth', 'expansion'
+            'adoption', 'partnership', 'upgrade', 'positive', 'growth', 'expansion',
+            'bull', 'up', 'high', 'strong', 'buy', 'long', 'invest'
         ]
         
         negative_words = [
-            '하락', '감소', '폭락', '급락', '약세', '악재', '부정', '우려', '위험', '규제',
             'drop', 'fall', 'bearish', 'crash', 'dump', 'decline', 'concern', 'risk',
-            'regulation', 'ban', 'hack', 'scam', 'negative', 'warning', 'threat'
+            'regulation', 'ban', 'hack', 'scam', 'negative', 'warning', 'threat',
+            'bear', 'down', 'low', 'weak', 'sell', 'short'
         ]
         
         text_lower = text.lower()
@@ -132,13 +126,13 @@ def register_free_crypto_news_tools(mcp):
         negative_count = sum(1 for word in negative_words if word in text_lower)
         
         if positive_count > negative_count:
-            sentiment = "긍정적"
+            sentiment = "positive"
             score = min(positive_count - negative_count, 3)
         elif negative_count > positive_count:
-            sentiment = "부정적"
+            sentiment = "negative"
             score = -min(negative_count - positive_count, 3)
         else:
-            sentiment = "중립적"
+            sentiment = "neutral"
             score = 0
         
         return {
@@ -149,18 +143,17 @@ def register_free_crypto_news_tools(mcp):
         }
     
     def extract_coins_from_text(text: str) -> List[str]:
-        """텍스트에서 코인 추출"""
         coin_patterns = {
-            'BTC': r'(?i)\b(bitcoin|btc|비트코인)\b',
-            'ETH': r'(?i)\b(ethereum|eth|이더리움|이더)\b',  
-            'BNB': r'(?i)\b(binance|bnb|바이낸스)\b',
-            'XRP': r'(?i)\b(ripple|xrp|리플)\b',
-            'ADA': r'(?i)\b(cardano|ada|카르다노)\b',
-            'SOL': r'(?i)\b(solana|sol|솔라나)\b',
-            'DOT': r'(?i)\b(polkadot|dot|폴카닷)\b',
-            'AVAX': r'(?i)\b(avalanche|avax|아발란체)\b',
-            'LINK': r'(?i)\b(chainlink|link|체인링크)\b',
-            'MATIC': r'(?i)\b(polygon|matic|폴리곤)\b'
+            'BTC': r'(?i)\b(bitcoin|btc)\b',
+            'ETH': r'(?i)\b(ethereum|eth|ether)\b',  
+            'BNB': r'(?i)\b(binance|bnb)\b',
+            'XRP': r'(?i)\b(ripple|xrp)\b',
+            'ADA': r'(?i)\b(cardano|ada)\b',
+            'SOL': r'(?i)\b(solana|sol)\b',
+            'DOT': r'(?i)\b(polkadot|dot)\b',
+            'AVAX': r'(?i)\b(avalanche|avax)\b',
+            'LINK': r'(?i)\b(chainlink|link)\b',
+            'MATIC': r'(?i)\b(polygon|matic)\b'
         }
         
         found_coins = []
@@ -173,11 +166,11 @@ def register_free_crypto_news_tools(mcp):
     @mcp.tool()
     async def get_latest_crypto_news(sources: List[str] = ["cryptocompare", "coindesk"], limit_per_source: int = 5) -> str:
         """
-        최신 암호화폐 뉴스 수집 (무료 소스)
+        Collect latest cryptocurrency news from free sources with sentiment analysis.
         
         Args:
-            sources: 뉴스 소스 리스트 (cryptocompare, coindesk, cointelegraph 등)
-            limit_per_source: 소스당 가져올 뉴스 개수
+            sources: List of news sources (cryptocompare, coindesk, cointelegraph, etc.)
+            limit_per_source: Number of news articles to collect per source
         """
         try:
             all_news = []
@@ -196,22 +189,17 @@ def register_free_crypto_news_tools(mcp):
                 else:
                     source_status[source] = 0
             
-            # 감정 분석 및 코인 추출
             analyzed_news = []
             sentiment_summary = {'positive': 0, 'negative': 0, 'neutral': 0}
             coin_mentions = {}
             
             for news in all_news:
-                # 감정 분석
                 sentiment = analyze_sentiment_simple(news['title'] + ' ' + news['description'])
-                
-                # 코인 추출
                 coins = extract_coins_from_text(news['title'] + ' ' + news['description'])
                 
-                # 통계 업데이트
-                if sentiment['sentiment'] == '긍정적':
+                if sentiment['sentiment'] == 'positive':
                     sentiment_summary['positive'] += 1
-                elif sentiment['sentiment'] == '부정적':
+                elif sentiment['sentiment'] == 'negative':
                     sentiment_summary['negative'] += 1
                 else:
                     sentiment_summary['neutral'] += 1
@@ -225,7 +213,6 @@ def register_free_crypto_news_tools(mcp):
                     'mentioned_coins': coins
                 })
             
-            # 날짜순 정렬
             analyzed_news.sort(key=lambda x: x['published_at'], reverse=True)
             
             result = {
@@ -236,7 +223,7 @@ def register_free_crypto_news_tools(mcp):
                     'top_mentioned_coins': sorted(coin_mentions.items(), key=lambda x: x[1], reverse=True)[:5],
                     'collection_time': datetime.now().isoformat()
                 },
-                'news': analyzed_news[:20],  # 최신 20개만
+                'news': analyzed_news[:20],
                 'available_sources': list(RSS_FEEDS.keys())
             }
             
@@ -248,20 +235,18 @@ def register_free_crypto_news_tools(mcp):
     @mcp.tool()
     async def get_trending_crypto_info() -> str:
         """
-        트렌딩 암호화폐 정보 (CoinGecko 무료 API)
+        Get trending cryptocurrency information from CoinGecko free API with related news analysis.
         """
         try:
             trending_data = fetch_coingecko_trending()
             
             if not trending_data:
-                return json.dumps({'error': '트렌딩 정보를 가져올 수 없습니다'}, ensure_ascii=False, indent=2)
+                return json.dumps({'error': 'Unable to fetch trending information'}, ensure_ascii=False, indent=2)
             
-            # 트렌딩 코인들에 대한 뉴스도 수집
             trending_coins = [coin['symbol'].upper() for coin in trending_data['trending_coins'][:5]]
             
-            # 각 트렌딩 코인의 뉴스 검색
             coin_news = {}
-            all_news = fetch_cryptocompare_news(20)  # 더 많은 뉴스 가져오기
+            all_news = fetch_cryptocompare_news(20)
             
             for coin_symbol in trending_coins:
                 relevant_news = []
@@ -275,7 +260,7 @@ def register_free_crypto_news_tools(mcp):
                             'published_at': news['published_at']
                         })
                 
-                coin_news[coin_symbol] = relevant_news[:3]  # 각 코인당 최대 3개 뉴스
+                coin_news[coin_symbol] = relevant_news[:3]
             
             result = {
                 'trending_analysis': trending_data,
@@ -294,24 +279,21 @@ def register_free_crypto_news_tools(mcp):
     @mcp.tool()
     async def monitor_breaking_news(keywords: List[str] = ["bitcoin", "ethereum", "regulation"]) -> str:
         """
-        속보성 뉴스 모니터링
+        Monitor breaking cryptocurrency news based on specified keywords within recent hours.
         
         Args:
-            keywords: 모니터링할 키워드 리스트
+            keywords: List of keywords to monitor for breaking news
         """
         try:
-            # 최근 3시간 내 뉴스만 필터링
             recent_threshold = datetime.now() - timedelta(hours=3)
             
-            all_news = fetch_cryptocompare_news(30)  # 최근 30개 뉴스
+            all_news = fetch_cryptocompare_news(30)
             breaking_news = []
             
             for news in all_news:
                 news_time = datetime.fromisoformat(news['published_at'].replace('Z', '+00:00')).replace(tzinfo=None)
                 
-                # 최근 뉴스만 확인
                 if news_time > recent_threshold:
-                    # 키워드 검색
                     text = (news['title'] + ' ' + news['description']).lower()
                     matched_keywords = [kw for kw in keywords if kw.lower() in text]
                     
@@ -330,13 +312,12 @@ def register_free_crypto_news_tools(mcp):
                             'urgency': 'HIGH' if len(matched_keywords) > 1 else 'MEDIUM'
                         })
             
-            # 긴급도와 시간순으로 정렬
             breaking_news.sort(key=lambda x: (x['urgency'] == 'HIGH', x['published_at']), reverse=True)
             
             result = {
                 'breaking_news_count': len(breaking_news),
                 'monitoring_keywords': keywords,
-                'time_range': '최근 3시간',
+                'time_range': 'Recent 3 hours',
                 'breaking_news': breaking_news[:10],
                 'alert_summary': {
                     'high_priority': len([n for n in breaking_news if n['urgency'] == 'HIGH']),
@@ -349,4 +330,4 @@ def register_free_crypto_news_tools(mcp):
         except Exception as e:
             return json.dumps({'error': str(e)}, ensure_ascii=False, indent=2)
     
-    print("🆓 무료 암호화폐 뉴스 도구 등록 완료")
+    print("🆓 Free cryptocurrency news tools registered successfully")

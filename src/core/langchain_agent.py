@@ -15,6 +15,21 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 load_dotenv()
 
 MODEL_CONFIG = {
+    "gpt41na": {
+        "type": "openai", 
+        "name": "gpt-4.1-nano", 
+        "API_KEY": "OPENAI_API_KEY", 
+    },    
+    "gpt41mini": {
+        "type": "openai", 
+        "name": "gpt-4.1-mini", 
+        "API_KEY": "OPENAI_API_KEY", 
+    },    
+    "gpt41": {
+        "type": "openai", 
+        "name": "gpt-4.1", 
+        "API_KEY": "OPENAI_API_KEY", 
+    },
     "gpt4mini": {
         "type": "openai", 
         "name": "gpt-4o-mini", 

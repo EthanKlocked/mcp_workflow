@@ -5,14 +5,18 @@ from fastmcp import FastMCP
 from ability.module.bitget_trader import BitgetAPI  
 from core.mcp_tools.bitget_tools import register_bitget_tools
 from core.mcp_tools.technical_analysis_tools import register_technical_analysis_tools
-from core.mcp_tools.crypto_news_tools import register_free_crypto_news_tools
+from core.mcp_tools.crypto_news_tools import register_crypto_news_tools
+from core.mcp_tools.social_sentiment_tools import register_social_sentiment_tools
+from core.mcp_tools.onchain_analysis_tools import register_onchain_analysis_tools
 load_dotenv()
 
 mcp = FastMCP("mcp-tools-server", stateless_http=True)
 
 register_bitget_tools(mcp)
 register_technical_analysis_tools(mcp)
-register_free_crypto_news_tools(mcp)
+register_crypto_news_tools(mcp)
+register_social_sentiment_tools(mcp)
+register_onchain_analysis_tools(mcp)
     
 if __name__ == "__main__":
     server_host = os.getenv("MCP_SERVER_HOST", "localhost")
